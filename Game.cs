@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.Serialization;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -58,19 +59,23 @@ public class Game1 : Game
             AddCell(Mouse.GetState().Position / new Point(scale), Cell.CellType.Gravel);
         if (Keyboard.GetState().IsKeyDown(Keys.D4))
             AddCell(Mouse.GetState().Position / new Point(scale), Cell.CellType.Water);
+        if (Keyboard.GetState().IsKeyDown(Keys.D5))
+            AddCell(Mouse.GetState().Position / new Point(scale), Cell.CellType.Acid);
 
         if (Mouse.GetState().RightButton == ButtonState.Pressed)
             RemoveCell(Mouse.GetState().Position / new Point(scale));
 
-        foreach (Cell cell in cells)
+        for (int i = 0; i < cells.Count; i++)
         {
+            Cell cell = cells[i];
+            //Movement
             if (cell.movementType == Cell.MovementType.Powder || cell.movementType == Cell.MovementType.HeavyPowder)
             {
                 if (cell.position.Y < sizeY - 1 && rnd.Next(0, 100) < 90)
                 {
                     if (cellArray[cell.position.X, cell.position.Y + 1] == null)
                         MoveCell(cell.position, cell.position + new Point(0, 1));
-                    else if (cellArray[cell.position.X, cell.position.Y + 1].movementType == Cell.MovementType.Fluid)
+                    else if (cellArray[cell.position.X, cell.position.Y + 1].density < cellArray[cell.position.X, cell.position.Y].density)
                     {
                         if (rnd.Next(0, 100) < 30)
                             SwitchCells(cell.position, cell.position + new Point(0, 1));
@@ -84,10 +89,15 @@ public class Game1 : Game
                     }
                 }
             }
-            if (cell.movementType == Cell.MovementType.Fluid && rnd.Next(0, 100) < 90)
+            else if (cell.movementType == Cell.MovementType.Fluid && rnd.Next(0, 100) < 90)
             {
                 if (cell.position.Y < sizeY - 1 && cellArray[cell.position.X, cell.position.Y + 1] == null)
                     MoveCell(cell.position, cell.position + new Point(0, 1));
+                else if (cell.position.Y < sizeY - 1 && cellArray[cell.position.X, cell.position.Y + 1].density < cellArray[cell.position.X, cell.position.Y].density)
+                {
+                    if (rnd.Next(0, 100) < 30)
+                        SwitchCells(cell.position, cell.position + new Point(0, 1));
+                }
                 else if (cell.position.Y < sizeY - 1 && cell.position.X > 0 && cellArray[cell.position.X - 1, cell.position.Y + 1] == null)
                     MoveCell(cell.position, cell.position + new Point(-1, 1));
                 else if (cell.position.Y < sizeY - 1 && cell.position.X < sizeX - 1 && cellArray[cell.position.X + 1, cell.position.Y + 1] == null)
@@ -128,6 +138,92 @@ public class Game1 : Game
                         MoveCell(cell.position, cell.position + new Point(1, 0));
                     else if (cell.position.X > 0 && cellArray[cell.position.X - 1, cell.position.Y] == null)
                         MoveCell(cell.position, cell.position + new Point(-1, 0));
+                }
+            }
+
+            //Morphing
+            //Left
+            if (cell.position.X > 0 && cellArray[cell.position.X - 1, cell.position.Y] != null &&
+                rnd.Next(0, 100) < cellArray[cell.position.X, cell.position.Y].morphChances.Item1 &&
+                cellArray[cell.position.X - 1, cell.position.Y].cellType != cellArray[cell.position.X, cell.position.Y].cellType &&
+                ((!cellArray[cell.position.X, cell.position.Y].blackList && cellArray[cell.position.X, cell.position.Y].morphCollisionsWhiteList.ContainsKey(cellArray[cell.position.X - 1, cell.position.Y].cellType)) ||
+                (cellArray[cell.position.X, cell.position.Y].blackList && !cellArray[cell.position.X, cell.position.Y].morphCollisionsBlackList.Contains(cellArray[cell.position.X - 1, cell.position.Y].cellType))))
+            {
+                if (!cellArray[cell.position.X, cell.position.Y].blackList)
+                    cellArray[cell.position.X - 1, cell.position.Y].SetCellType(cellArray[cell.position.X, cell.position.Y].morphCollisionsWhiteList[cellArray[cell.position.X - 1, cell.position.Y].cellType], rnd);
+                else
+                    cellArray[cell.position.X - 1, cell.position.Y].SetCellType(cellArray[cell.position.X, cell.position.Y].morphInto, rnd);
+
+                if (cellArray[cell.position.X - 1, cell.position.Y].cellType == Cell.CellType.None)
+                    RemoveCell(cell.position + new Point(-1, 0));
+
+                if (cellArray[cell.position.X, cell.position.Y].destroyAfterMorph)
+                {
+                    RemoveCell(cell.position);
+                    continue;
+                }
+            }
+            //Right
+            if (cell.position.X < sizeX - 1 && cellArray[cell.position.X + 1, cell.position.Y] != null &&
+                rnd.Next(0, 100) < cellArray[cell.position.X, cell.position.Y].morphChances.Item2 &&
+                cellArray[cell.position.X + 1, cell.position.Y].cellType != cellArray[cell.position.X, cell.position.Y].cellType &&
+                ((!cellArray[cell.position.X, cell.position.Y].blackList && cellArray[cell.position.X, cell.position.Y].morphCollisionsWhiteList.ContainsKey(cellArray[cell.position.X + 1, cell.position.Y].cellType)) ||
+                (cellArray[cell.position.X, cell.position.Y].blackList && !cellArray[cell.position.X, cell.position.Y].morphCollisionsBlackList.Contains(cellArray[cell.position.X + 1, cell.position.Y].cellType))))
+            {
+                if (!cellArray[cell.position.X, cell.position.Y].blackList)
+                    cellArray[cell.position.X + 1, cell.position.Y].SetCellType(cellArray[cell.position.X, cell.position.Y].morphCollisionsWhiteList[cellArray[cell.position.X + 1, cell.position.Y].cellType], rnd);
+                else
+                    cellArray[cell.position.X + 1, cell.position.Y].SetCellType(cellArray[cell.position.X, cell.position.Y].morphInto, rnd);
+
+                if (cellArray[cell.position.X + 1, cell.position.Y].cellType == Cell.CellType.None)
+                    RemoveCell(cell.position + new Point(1, 0));
+
+                if (cellArray[cell.position.X, cell.position.Y].destroyAfterMorph)
+                {
+                    RemoveCell(cell.position);
+                    continue;
+                }
+            }
+            //Up
+            if (cell.position.Y > 0 && cellArray[cell.position.X, cell.position.Y - 1] != null &&
+                rnd.Next(0, 100) < cellArray[cell.position.X, cell.position.Y].morphChances.Item3 &&
+                cellArray[cell.position.X, cell.position.Y - 1].cellType != cellArray[cell.position.X, cell.position.Y].cellType &&
+                ((!cellArray[cell.position.X, cell.position.Y].blackList && cellArray[cell.position.X, cell.position.Y].morphCollisionsWhiteList.ContainsKey(cellArray[cell.position.X, cell.position.Y - 1].cellType)) ||
+                (cellArray[cell.position.X, cell.position.Y].blackList && !cellArray[cell.position.X, cell.position.Y].morphCollisionsBlackList.Contains(cellArray[cell.position.X, cell.position.Y - 1].cellType))))
+            {
+                if (!cellArray[cell.position.X, cell.position.Y].blackList)
+                    cellArray[cell.position.X, cell.position.Y - 1].SetCellType(cellArray[cell.position.X, cell.position.Y].morphCollisionsWhiteList[cellArray[cell.position.X, cell.position.Y - 1].cellType], rnd);
+                else
+                    cellArray[cell.position.X, cell.position.Y - 1].SetCellType(cellArray[cell.position.X, cell.position.Y].morphInto, rnd);
+
+                if (cellArray[cell.position.X, cell.position.Y - 1].cellType == Cell.CellType.None)
+                    RemoveCell(cell.position + new Point(0, -1));
+
+                if (cellArray[cell.position.X, cell.position.Y].destroyAfterMorph)
+                {
+                    RemoveCell(cell.position);
+                    continue;
+                }
+            }
+            //Down
+            if (cell.position.Y < sizeY - 1 && cellArray[cell.position.X, cell.position.Y + 1] != null &&
+                rnd.Next(0, 100) < cellArray[cell.position.X, cell.position.Y].morphChances.Item4 &&
+                cellArray[cell.position.X, cell.position.Y + 1].cellType != cellArray[cell.position.X, cell.position.Y].cellType &&
+                ((!cellArray[cell.position.X, cell.position.Y].blackList && cellArray[cell.position.X, cell.position.Y].morphCollisionsWhiteList.ContainsKey(cellArray[cell.position.X, cell.position.Y + 1].cellType)) ||
+                (cellArray[cell.position.X, cell.position.Y].blackList && !cellArray[cell.position.X, cell.position.Y].morphCollisionsBlackList.Contains(cellArray[cell.position.X, cell.position.Y + 1].cellType))))
+            {
+                if (!cellArray[cell.position.X, cell.position.Y].blackList)
+                    cellArray[cell.position.X, cell.position.Y + 1].SetCellType(cellArray[cell.position.X, cell.position.Y].morphCollisionsWhiteList[cellArray[cell.position.X, cell.position.Y + 1].cellType], rnd);
+                else
+                    cellArray[cell.position.X, cell.position.Y + 1].SetCellType(cellArray[cell.position.X, cell.position.Y].morphInto, rnd);
+
+                if (cellArray[cell.position.X, cell.position.Y + 1].cellType == Cell.CellType.None)
+                    RemoveCell(cell.position + new Point(0, 1));
+
+                if (cellArray[cell.position.X, cell.position.Y].destroyAfterMorph)
+                {
+                    RemoveCell(cell.position);
+                    continue;
                 }
             }
         }
@@ -194,19 +290,12 @@ public class Game1 : Game
 
     private void RemoveCell(Point position)
     {
-        for (int x = -2; x <= 2; x++)
+        if (position.X >= 0 && position.Y >= 0 && position.X < sizeX && position.Y < sizeY &&
+            cellArray[position.X, position.Y] != null)
         {
-            for (int y = -2; y <= 2; y++)
-            {
-                Point shiftedPosition = position + new Point(x, y);
-                if (shiftedPosition.X >= 0 && shiftedPosition.Y >= 0 && shiftedPosition.X < sizeX && shiftedPosition.Y < sizeY &&
-                    cellArray[shiftedPosition.X, shiftedPosition.Y] != null)
-                {
-                    Cell removedCell = cellArray[shiftedPosition.X, shiftedPosition.Y];
-                    cellArray[shiftedPosition.X, shiftedPosition.Y] = null;
-                    cells.Remove(removedCell);
-                }
-            }
+            Cell removedCell = cellArray[position.X, position.Y];
+            cellArray[position.X, position.Y] = null;
+            cells.Remove(removedCell);
         }
     }
 }

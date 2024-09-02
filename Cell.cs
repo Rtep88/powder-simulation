@@ -1,14 +1,17 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
 public class Cell
 {
     public enum CellType
     {
+        None,
         Wood,
         Sand,
         Gravel,
-        Water
+        Water,
+        Acid
     }
 
     public enum MovementType
@@ -19,14 +22,29 @@ public class Cell
         Fluid
     }
 
+    //Base
     public Point position;
     public CellType cellType;
     public MovementType movementType;
     public Color color;
+    public int density = int.MaxValue;
+
+    //Morphing
+    public Dictionary<CellType, CellType> morphCollisionsWhiteList = new Dictionary<CellType, CellType>(); //(From, To)
+    public bool blackList = false; //false = white list is used, true = black list is used
+    public List<CellType> morphCollisionsBlackList = new List<CellType>(); //Which cell types should not be morphed
+    public CellType morphInto = CellType.None; //If none than morphed cell is deleted
+    public bool destroyAfterMorph = false;
+    public (int, int, int, int) morphChances = (0, 0, 0, 0); //Left, right, up, down
 
     public Cell(Point position, CellType cellType, Random rnd)
     {
         this.position = position;
+        SetCellType(cellType, rnd);
+    }
+
+    public void SetCellType(CellType cellType, Random rnd)
+    {
         this.cellType = cellType;
 
         switch (cellType)
@@ -46,6 +64,15 @@ public class Cell
             case CellType.Water:
                 color = new Color(39, 65, 196);
                 movementType = MovementType.Fluid;
+                density = 1000;
+                break;
+            case CellType.Acid:
+                color = new Color(45, 242, 19);
+                movementType = MovementType.Fluid;
+                density = 1500;
+                blackList = true;
+                destroyAfterMorph = true;
+                morphChances = (5, 5, 10, 10);
                 break;
         }
 
