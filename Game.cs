@@ -21,6 +21,7 @@ public class Game1 : Game
     private Cell[,] cellArray = new Cell[sizeX, sizeY];
     private Texture2D pixel;
     private Random rnd = new Random();
+    private Point lastMousePosition = new Point(-1);
 
     public Game1()
     {
@@ -51,24 +52,36 @@ public class Game1 : Game
         if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
             Exit();
 
-        if (Keyboard.GetState().IsKeyDown(Keys.D1))
-            AddCell(Mouse.GetState().Position / new Point(scale), Cell.CellType.Wood, 2);
-        if (Keyboard.GetState().IsKeyDown(Keys.D2))
-            AddCell(Mouse.GetState().Position / new Point(scale), Cell.CellType.Sand, 2);
-        if (Keyboard.GetState().IsKeyDown(Keys.D3))
-            AddCell(Mouse.GetState().Position / new Point(scale), Cell.CellType.Gravel, 2);
-        if (Keyboard.GetState().IsKeyDown(Keys.D4))
-            AddCell(Mouse.GetState().Position / new Point(scale), Cell.CellType.Water, 2);
-        if (Keyboard.GetState().IsKeyDown(Keys.D5))
-            AddCell(Mouse.GetState().Position / new Point(scale), Cell.CellType.Acid, 2);
-        if (Keyboard.GetState().IsKeyDown(Keys.D6))
-            AddCell(Mouse.GetState().Position / new Point(scale), Cell.CellType.Smoke, 2);
-        if (Keyboard.GetState().IsKeyDown(Keys.D7))
-            AddCell(Mouse.GetState().Position / new Point(scale), Cell.CellType.Fire, 2);
+        bool placed = false;
+        for (int i = 0; i < 8; i++)
+            if (Keyboard.GetState().IsKeyDown((Keys)(49 + i)))
+            {
+                if (lastMousePosition != new Point(-1))
+                {
+                    Vector2 vector = Vector2.Normalize((lastMousePosition - Mouse.GetState().Position).ToVector2());
+                    Vector2 currentPos = Mouse.GetState().Position.ToVector2();
+                    float lastDistance;
+                    do
+                    {
+                        lastDistance = Vector2.Distance(currentPos, lastMousePosition.ToVector2());
+                        AddCell(currentPos.ToPoint() / new Point(scale), (Cell.CellType)(i + 1), 2);
+                        currentPos += vector;
+                    } while (Vector2.Distance(currentPos, lastMousePosition.ToVector2()) < lastDistance);
+                }
+                else
+                    AddCell(Mouse.GetState().Position / new Point(scale), (Cell.CellType)(i + 1), 2);
+                placed = true;
+            }
+
+        if (placed)
+            lastMousePosition = Mouse.GetState().Position;
+        else
+            lastMousePosition = new Point(-1);
 
 
         if (Mouse.GetState().RightButton == ButtonState.Pressed)
             RemoveCell(Mouse.GetState().Position / new Point(scale));
+
 
         for (int i = 0; i < cells.Count; i++)
         {
@@ -100,7 +113,7 @@ public class Game1 : Game
                     MoveCell(cell.position, cell.position + new Point(0, 1));
                 else if (cell.position.Y < sizeY - 1 && cellArray[cell.position.X, cell.position.Y + 1].density < cellArray[cell.position.X, cell.position.Y].density)
                 {
-                    if (rnd.Next(0, 100) < 30)
+                    if (rnd.Next(0, 100) < 50)
                         SwitchCells(cell.position, cell.position + new Point(0, 1));
                 }
                 else if (cell.position.Y < sizeY - 1 && cell.position.X > 0 && cellArray[cell.position.X - 1, cell.position.Y + 1] == null)
@@ -213,8 +226,11 @@ public class Game1 : Game
                         (cell.blackList && !cell.morphCollisionsBlackList.Contains(morphCell.cellType))))
                     {
                         bool morphed = false;
+                        (Cell.CellType, int, int) morphInfo = (Cell.CellType.None, 0, 0);
+
                         if (!cell.blackList && rnd.Next(0, 100) < cell.morphCollisionsWhiteList[morphCell.cellType].Item2)
                         {
+                            morphInfo = cell.morphCollisionsWhiteList[morphCell.cellType];
                             morphCell.SetCellType(cell.morphCollisionsWhiteList[morphCell.cellType].Item1, rnd);
                             morphed = true;
                         }
@@ -227,7 +243,7 @@ public class Game1 : Game
                         if (morphCell.cellType == Cell.CellType.None)
                             RemoveCell(morphCellPosition);
 
-                        if (morphed && cell.destroyAfterMorph)
+                        if (morphed && ((cell.blackList && rnd.Next(0, 100) < cell.morphDisapperChance) || (!cell.blackList && rnd.Next(0, 100) < morphInfo.Item3)))
                         {
                             RemoveCell(cell.position);
                             continue;

@@ -12,8 +12,11 @@ public class Cell
         Gravel,
         Water,
         Acid,
-        Smoke,
-        Fire
+        Fire,
+        Lava,
+        Virus,
+        Steam,
+        Smoke
     }
 
     public enum MovementType
@@ -34,12 +37,12 @@ public class Cell
     public int moveChance = -1;
 
     //Morphing
-    public Dictionary<CellType, (CellType, int)> morphCollisionsWhiteList = new Dictionary<CellType, (CellType, int)>(); //(From, (To, Morph chance))
+    public Dictionary<CellType, (CellType, int, int)> morphCollisionsWhiteList = new Dictionary<CellType, (CellType, int, int)>(); //(From, (To, Morph chance, Disapper chance))
     public bool blackList = false; //false = white list is used, true = black list is used
     public List<CellType> morphCollisionsBlackList = new List<CellType>(); //Which cell types should not be morphed
     public CellType morphInto = CellType.None; //If none than morphed cell is deleted
-    public bool destroyAfterMorph = false; //For blacklist
     public int morphChance = 0; //For blacklist
+    public int morphDisapperChance = 0; //For blacklist
 
     //lifespan
     public float lifeSpan = float.MaxValue;
@@ -58,12 +61,12 @@ public class Cell
         this.cellType = cellType;
         density = int.MaxValue;
         moveChance = -1;
-        morphCollisionsWhiteList = new Dictionary<CellType, (CellType, int)>();
+        morphCollisionsWhiteList = new Dictionary<CellType, (CellType, int, int)>();
         blackList = false;
         morphCollisionsBlackList = new List<CellType>();
         morphInto = CellType.None;
-        destroyAfterMorph = false;
         morphChance = 0;
+        morphDisapperChance = 0;
         lifeSpan = 0;
         currentTime = 0;
         afterLifeMorph = CellType.None;
@@ -93,13 +96,13 @@ public class Cell
                 movementType = MovementType.Fluid;
                 density = 1500;
                 blackList = true;
-                destroyAfterMorph = true;
+                morphDisapperChance = 100;
                 morphChance = 7;
                 break;
             case CellType.Smoke:
                 color = new Color(60, 60, 60);
                 movementType = MovementType.Gas;
-                density = 50;
+                density = 2;
                 lifeSpan = 2;
                 chanceToDisapper = 50;
                 break;
@@ -107,11 +110,34 @@ public class Cell
                 density = 5;
                 color = new Color(255, 0, 0);
                 movementType = MovementType.Gas;
-                morphCollisionsWhiteList.Add(CellType.Wood, (CellType.Fire, 11));
+                morphCollisionsWhiteList.Add(CellType.Wood, (CellType.Fire, 11, 0));
                 lifeSpan = 0.5f;
                 afterLifeMorph = CellType.Smoke;
                 chanceToDisapper = 60;
                 moveChance = 5;
+                break;
+            case CellType.Lava:
+                density = 3100;
+                color = new Color(255, 97, 18);
+                movementType = MovementType.Fluid;
+                morphCollisionsWhiteList.Add(CellType.Wood, (CellType.Fire, 80, 0));
+                morphCollisionsWhiteList.Add(CellType.Water, (CellType.Steam, 80, 50));
+                moveChance = 30;
+                break;
+            case CellType.Steam:
+                density = 1;
+                lifeSpan = 3f;
+                chanceToDisapper = 50;
+                color = new Color(200, 200, 200);
+                movementType = MovementType.Gas;
+                break;
+            case CellType.Virus:
+                color = new Color(88, 0, 176);
+                movementType = MovementType.HeavyPowder;
+                blackList = true;
+                morphChance = 50;
+                morphInto = CellType.Virus;
+                moveChance = 10;
                 break;
         }
 
